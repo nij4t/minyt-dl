@@ -1,0 +1,14 @@
+Demonstration of entirely in browser yt-dl
+==========================================
+
+Fetch and mux even without installing ffmpeg.  No node/npm required too.
+
+- yt related code: modified excerpt from youtube-dl (https://github.com/ytdl-org/youtube-dl)
+- a/v muxing using ffmpeg.wasm (https://github.com/ffmpegwasm/ffmpeg.wasm)
+
+
+Future plan:
+ - Clean up the code
+ - Minified muxer-only ffmpeg (or entirely from scratch?) in js/wasm ***
+ - Better UI??
+
