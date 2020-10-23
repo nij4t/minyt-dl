@@ -6,18 +6,24 @@
 <body>
     Give it a try
 
+    <input type="text" id="url" /><button onClick="go()">go</button>
+    <br />
+
+    <span id="statusText">Not loaded, please wait...</span>
+
+    <div id="infoDiv"></div>
+
     <div id="formatsDiv"></div>
-
-    <div id="container"></div>
-
-    <span id="statusText"></span>
 </body>
-
+<script>
+    window.onload = () => { statusText.innerText = "ready to go"; };
+</script>
 <!--
 <script src="ffmpeg.min.js"></script>
 <script src="ffmpeg-core.js"></script>
 <script src="FileSaver.min.js"></script>
 -->
+
 <script src="https://unpkg.com/file-saver@2.0.2/dist/FileSaver.min.js"></script>
 <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.8.3/dist/ffmpeg.min.js"></script>
 <script src="minyt-dl.js"></script>

@@ -1,24 +1,31 @@
 const { createFFmpeg } = FFmpeg;
 const ffmpeg = createFFmpeg({log: true});
 
-const cors_proxy = "https://cors-anywhere.herokuapp.com"
+const cors_proxy = "https://cors-anywhere.herokuapp.com/"
 const origin = "cors-anywhere.herokuapp.com"
-
-let _url = "https://www.youtube.com/watch?v=ue201pjhHMI"
 
 let _patterns = [
     new RegExp(';ytplayer\\.config\\s*=\\s*({.+?});ytplayer'),
     new RegExp(';ytplayer\\.config\\s*=\\s*({.+?});'),
 ];
 
+let title = "";
 
-let formatsDiv = document.getElementById("formatsDiv");
-let containerDiv = document.getElementById("container");
-let statusText = document.getElementById("statusText");
+const formatsDiv = document.getElementById("formatsDiv");
+const infoDiv = document.getElementById("infoDiv");
+const statusText = document.getElementById("statusText");
+const urlText = document.getElementById("url");
 
 let streamingFormats = [];
 let video_webpage;
 let player_func = "";
+
+function go() {
+    stat("on the way...");
+    get_formats(urlText.value);
+    formatsDiv.innerText = "";
+    infoDiv.innerText = "";
+}
 
 
 function searchRegexes(patterns, string) {
@@ -52,7 +59,7 @@ async function extractSignatureFunction(player_url, s) {
     let funcname = searchRegexes(patterns, code);
 
     if (funcname === "") {
-        console.log("ERR: Funcname");
+        stat("ERR: Funcname.  Try refreshing, and do slowly.");
         return;
     }
 
@@ -80,6 +87,21 @@ async function decryptSignature(s, player_url) {
     return window["_yt_player"][player_func](s);
 }
 
+async function info(videoDetails) {
+    const span = document.createElement("span");
+    span.innerText = videoDetails.title;
+    const thumbnail = videoDetails.thumbnail.thumbnails[0]; 
+    const resp = await fetch(cors_proxy + thumbnail.url);
+    const blob = await resp.blob();
+    let img = new Image(thumbnail.width, thumbnail.height);
+    img.src = window.URL.createObjectURL(blob);
+    infoDiv.innerText = "";
+    infoDiv.appendChild(span);
+    infoDiv.appendChild(document.createElement("br"));
+    infoDiv.appendChild(img);
+
+}
+
 
 async function get_formats(url) {
     let resp = await fetch(cors_proxy + url);
@@ -87,13 +109,17 @@ async function get_formats(url) {
 
     let config = searchRegexes(_patterns, video_webpage);
     if (!config) {
-        console.log("ERR: No Config");
+        stat("ERR: No Config.  Try refreshing, and do slowly.");
         return;
     }
 
     let ytplayer_config = JSON.parse(config);
     let args = ytplayer_config.args;
     let player_response = JSON.parse(args.player_response);
+    let video_details = player_response.videoDetails;
+
+    await info(video_details);
+    title = video_details.title;
 
     let simpleDiv = document.createElement("div");
     let audioSelect = document.createElement("select");
@@ -102,10 +128,16 @@ async function get_formats(url) {
     streamingFormats = player_response.streamingData.formats.concat(player_response.streamingData.adaptiveFormats);
 
     streamingFormats.forEach( (e, i) => {
-        console.log("INFO");
-        let spec = _formats[e.itag];
-
+        let spec;
+        if (!(e.itag in _formats)) {
+            return;
+        } else {
+            spec = _formats[e.itag];
+        }
         if (spec.vcodec && spec.acodec) {
+            if (!spec.height)
+                return;
+ 
             let button = document.createElement("button");
             button.innerText = spec.height;
             
@@ -117,11 +149,15 @@ async function get_formats(url) {
         option.value = i;
 
         if (spec.acodec) {    
+            if (spec.acodec != "aac")
+                return;
             option.innerText = `${spec.acodec} - ${spec.abr}`;
             audioSelect.appendChild(option);
             return;
         }
         
+        if (spec.vcodec != "h264")
+            return;
         option.innerText = `${spec.vcodec} - ${spec.height}`;
         videoSelect.appendChild(option);
     });
@@ -136,17 +172,25 @@ async function get_formats(url) {
     formatsDiv.appendChild(audioSelect);
     formatsDiv.appendChild(videoSelect);
     formatsDiv.appendChild(muxButton);
+
+    stat("found");
 }
 
+function stat(s) {
+    statusText.innerText = s;
+}
 
 async function mux(videoId, audioId) {
-
-    let vidUrl = await get_url(videoId);
-    let audUrl = await get_url(audioId);
-
-    function stat(s) {
-        statusText.innerText = s;
+    let vidUrl;
+    let audUrl;
+    try {
+        vidUrl = await get_url(videoId);
+        audUrl = await get_url(audioId);
+    } catch (e) {
+        stat("error, try refreshing");
+        return;
     }
+    
     stat("loading ffmpeg");
     await ffmpeg.load();
 
@@ -205,7 +249,7 @@ async function mux(videoId, audioId) {
     const out = ffmpeg.read("out.mp4");
 
     stat("done");
-    saveAs(new Blob([out]), "out.mp4");
+    saveAs(new Blob([out]), title + ".mp4");
 }
 
 
@@ -222,8 +266,6 @@ async function get_url(i) {
     if (url_data.has("s")) {
         let ASSETS_RE = new RegExp('"assets":.+?"js":\\s*("[^"]+")');
         let jsplayer_url_json = video_webpage.match(ASSETS_RE)[1];
-        if (!jsplayer_url_json)
-            return;
         player_url = JSON.parse(jsplayer_url_json);
     }
 
@@ -240,21 +282,17 @@ async function get_url(i) {
 
 
 async function click(i) {
-    let url = await get_url(i);
+    let url;
+    try {
+        url = await get_url(i);
+    } catch (e) {
+        stat("error, try refreshing");
+        return;
+    }
 
-    let media = document.createElement("video");
-    media.src = url;
-    media.controls = true;
-    media.height = 480;
-
-    containerDiv.textContent = '';
-    containerDiv.appendChild(media);
+    stat("");
+    statusText.innerHTML = `ok, <a href="${url}">download</a> (right click, save as)`;
 }
-
-get_formats(_url);
-
-
-
 
 let _formats = {
         '5': {'ext': 'flv', 'width': 400, 'height': 240, 'acodec': 'mp3', 'abr': 64, 'vcodec': 'h263'},
@@ -360,4 +398,4 @@ let _formats = {
         '395': {'acodec': 'none', 'vcodec': 'av01.0.05M.08'},
         '396': {'acodec': 'none', 'vcodec': 'av01.0.05M.08'},
         '397': {'acodec': 'none', 'vcodec': 'av01.0.05M.08'},
-    }
+}
