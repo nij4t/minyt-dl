@@ -190,6 +190,11 @@ async function mux(videoId, audioId) {
         stat("error, try refreshing");
         return;
     }
+
+    if (!vidUrl || !audUrl) {
+        stat("error, probably unsupported, retrying not encouraged");
+        return;
+    }
     
     stat("loading ffmpeg");
     await ffmpeg.load();
@@ -289,6 +294,12 @@ async function click(i) {
         stat("error, try refreshing");
         return;
     }
+
+    if (!url) {
+        stat("error, probably unsupported, retrying not encouraged");
+        return;
+    }
+
 
     stat("");
     statusText.innerHTML = `ok, <a href="${url}">download</a> (right click, save as)`;
